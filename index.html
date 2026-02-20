@@ -130,18 +130,60 @@
       return (node?.textContent || "").trim();
     }
 
+    function normalizeResult(text) {
+      const value = (text || "").trim();
+      if (["胜", "败", "平"].includes(value)) return value;
+      if (/^(win|lose|loss|draw)$/i.test(value)) return value;
+      return "";
+    }
+
+    function findResultText(item) {
+      const preferredNodes = Array.from(item.querySelectorAll('div.hMoeZP, div.hitagi__sc-1s72l36-0'));
+      for (const node of preferredNodes) {
+        const value = normalizeResult(textOf(node));
+        if (value) return value;
+      }
+
+      const allDivs = Array.from(item.querySelectorAll('div'));
+      for (const node of allDivs) {
+        const value = normalizeResult(textOf(node));
+        if (value) return value;
+      }
+
+      return "";
+    }
+
+    function findCountNumber(item) {
+      const directNode = item.querySelector('div.bMwEJi, div.hitagi__sc-6oal1n-0.bMwEJi');
+      const directValue = Number.parseInt(textOf(directNode), 10);
+      if (!Number.isNaN(directValue)) return directValue;
+
+      const likelyNodes = Array.from(item.querySelectorAll('div')).filter((node) => {
+        const text = textOf(node);
+        if (!/^\d+$/.test(text)) return false;
+
+        const parent = node.parentElement;
+        if (!parent) return false;
+
+        return parent.querySelector('svg') && parent.children.length <= 3;
+      });
+
+      for (const node of likelyNodes) {
+        const value = Number.parseInt(textOf(node), 10);
+        if (!Number.isNaN(value)) return value;
+      }
+
+      return Number.NaN;
+    }
+
     function extractPairs(rawHtml) {
       const doc = new DOMParser().parseFromString(rawHtml, "text/html");
       const items = Array.from(doc.querySelectorAll('a[href^="/matches/"]'));
 
       return items
         .map((item, index) => {
-          const resultNode = item.querySelector('div.jIYDVq.hMoeZP, div.hitagi__sc-1s72l36-0.jIYDVq.hMoeZP');
-          const countNode = item.querySelector('div.bMwEJi, div.hitagi__sc-6oal1n-0.bMwEJi');
-
-          const resultText = textOf(resultNode);
-          const countText = textOf(countNode);
-          const countNum = Number.parseInt(countText, 10);
+          const resultText = findResultText(item);
+          const countNum = findCountNumber(item);
 
           if (!resultText || Number.isNaN(countNum)) {
             return {
