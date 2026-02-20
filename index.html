@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTML 二元数据提取器</title>
+  <style>
+    :root {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: #1f2937;
+      background: #f3f4f6;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+    }
+    p {
+      margin: 8px 0 16px;
+      color: #4b5563;
+    }
+    textarea {
+      width: 100%;
+      min-height: 280px;
+      resize: vertical;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 12px;
+      box-sizing: border-box;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 18px;
+      color: #fff;
+      background: #2563eb;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button.secondary {
+      background: #6b7280;
+    }
+    button:hover {
+      opacity: 0.92;
+    }
+    .result {
+      margin-top: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid #e5e7eb;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background: #f9fafb;
+    }
+    pre {
+      background: #111827;
+      color: #f9fafb;
+      padding: 10px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .meta {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>HTML 二元数据提取器</h1>
+    <p>一次性粘贴多个元素项 HTML，程序将逐条提取：结果（如“胜/败”）与人数数字，并输出二维矩阵。</p>
+
+    <textarea id="htmlInput" placeholder="请粘贴包含多个元素项的 HTML 代码..."></textarea>
+    <div class="actions">
+      <button id="extractBtn">提取数据</button>
+      <button id="clearBtn" class="secondary">清空</button>
+    </div>
+
+    <div class="result" id="resultArea"></div>
+  </div>
+
+  <script>
+    function textOf(node) {
+      return (node?.textContent || "").trim();
+    }
+
+    function extractPairs(rawHtml) {
+      const doc = new DOMParser().parseFromString(rawHtml, "text/html");
+      const items = Array.from(doc.querySelectorAll('a[href^="/matches/"]'));
+
+      return items
+        .map((item, index) => {
+          const resultNode = item.querySelector('div.jIYDVq.hMoeZP, div.hitagi__sc-1s72l36-0.jIYDVq.hMoeZP');
+          const countNode = item.querySelector('div.bMwEJi, div.hitagi__sc-6oal1n-0.bMwEJi');
+
+          const resultText = textOf(resultNode);
+          const countText = textOf(countNode);
+          const countNum = Number.parseInt(countText, 10);
+
+          if (!resultText || Number.isNaN(countNum)) {
+            return {
+              row: index + 1,
+              ok: false,
+              reason: "未找到目标字段",
+            };
+          }
+
+          return {
+            row: index + 1,
+            ok: true,
+            data: [resultText, countNum],
+          };
+        })
+        .filter(record => record.ok)
+        .map(record => record.data);
+    }
+
+    function renderMatrix(matrix) {
+      const resultArea = document.getElementById("resultArea");
+      resultArea.innerHTML = "";
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = `共提取 ${matrix.length} 条二元数据`;
+      resultArea.appendChild(meta);
+
+      const table = document.createElement("table");
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>序号</th>
+            <th>结果</th>
+            <th>数字</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${matrix
+            .map((row, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${row[0]}</td>
+                <td>${row[1]}</td>
+              </tr>
+            `)
+            .join("")}
+        </tbody>
+      `;
+      resultArea.appendChild(table);
+
+      const jsonTitle = document.createElement("p");
+      jsonTitle.textContent = "矩阵（JSON）：";
+      resultArea.appendChild(jsonTitle);
+
+      const pre = document.createElement("pre");
+      pre.textContent = JSON.stringify(matrix, null, 2);
+      resultArea.appendChild(pre);
+    }
+
+    document.getElementById("extractBtn").addEventListener("click", () => {
+      const rawHtml = document.getElementById("htmlInput").value;
+      const matrix = extractPairs(rawHtml);
+      renderMatrix(matrix);
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      document.getElementById("htmlInput").value = "";
+      document.getElementById("resultArea").innerHTML = "";
+    });
+  </script>
+</body>
+</html>
